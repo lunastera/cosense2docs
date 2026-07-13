@@ -20,7 +20,7 @@ export type InlineNode =
   | { t: "note"; ch: InlineNode[] }
   | { t: "checkbox" }
   | { t: "blank" }
-  | { t: "icon"; name: string }
+  | { t: "icons"; names: string[] }
   | { t: "internal"; v: string };
 
 export type HeadingLevel = 1 | 2 | 3;
@@ -191,11 +191,52 @@ function bracketNode(inner: string, opts: Options): InlineNode | null {
   }
 
   if (/\.icon(\*\d+)?$/.test(inner)) {
-    return { t: "icon", name: inner.replace(/\.icon(\*\d+)?$/, "") };
+    return { t: "icons", names: [inner.replace(/\.icon(\*\d+)?$/, "")] };
   }
 
   // 内部リンク [ページ名] / [/project/page] はテキストとして残す
   return { t: "internal", v: inner };
+}
+
+/**
+ * 連続するアイコン（間の空白のみのテキストを含む）を 1 つの icons ノードにまとめる。
+ * 「同意 [a.icon] [b.icon]」のような並びを (a, b) と表示するため。
+ * 同じ名前の繰り返し（[a.icon*3] や [a.icon][a.icon]）は 1 つに重複除去する。
+ */
+function groupIcons(nodes: InlineNode[]): InlineNode[] {
+  const out: InlineNode[] = [];
+  let i = 0;
+  while (i < nodes.length) {
+    const n = nodes[i];
+    if (n.t !== "icons") {
+      out.push(n);
+      i++;
+      continue;
+    }
+    const names = [...n.names];
+    let j = i + 1;
+    while (j < nodes.length) {
+      const next = nodes[j];
+      if (next.t === "icons") {
+        names.push(...next.names);
+        j++;
+        continue;
+      }
+      // 空白のみのテキストは、その先にまたアイコンが続く場合だけ吸収する
+      if (
+        next.t === "text" &&
+        /^[\s　]+$/.test(next.v) &&
+        nodes[j + 1]?.t === "icons"
+      ) {
+        j++;
+        continue;
+      }
+      break;
+    }
+    out.push({ t: "icons", names: [...new Set(names)] });
+    i = j;
+  }
+  return out;
 }
 
 export function parseInline(s: string, opts: Options): InlineNode[] {
@@ -248,7 +289,7 @@ export function parseInline(s: string, opts: Options): InlineNode[] {
     i++;
   }
   flush();
-  return nodes;
+  return groupIcons(nodes);
 }
 
 /** インラインノード列からプレーンテキストを取り出す（ファイル名生成などに使用） */
@@ -266,8 +307,8 @@ export function nodesToPlainText(nodes: InlineNode[]): string {
         case "deco":
         case "note":
           return nodesToPlainText(n.ch);
-        case "icon":
-          return n.name;
+        case "icons":
+          return n.names.join(", ");
         default:
           return "";
       }

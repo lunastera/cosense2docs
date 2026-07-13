@@ -84,9 +84,13 @@ function nodesToRuns(
           new TextRun({ text: "　　　　　　", underline: {}, ...inherit }),
         );
         break;
-      case "icon":
+      case "icons":
         out.push(
-          new TextRun({ text: `[${n.name}]`, color: "6B7280", ...inherit }),
+          new TextRun({
+            text: `(${n.names.join(", ")})`,
+            color: "6B7280",
+            ...inherit,
+          }),
         );
         break;
       case "internal":

@@ -60,8 +60,8 @@ export function nodesToHtml(nodes: InlineNode[]): string {
       case "blank":
         out += `<span style="${S.blank}">　　　　　　</span>`;
         break;
-      case "icon":
-        out += `<span style="${S.icon}">[${esc(n.name)}]</span>`;
+      case "icons":
+        out += `<span style="${S.icon}">(${esc(n.names.join(", "))})</span>`;
         break;
       case "internal":
         out += `<span class="internal">${esc(n.v)}</span>`;

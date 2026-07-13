@@ -149,7 +149,7 @@ describe("parseInline", () => {
 
   it("[name.icon] はアイコン、[ページ名] は内部リンク扱い", () => {
     expect(parseInline("[taro.icon]", opts)).toMatchObject([
-      { t: "icon", name: "taro" },
+      { t: "icons", names: ["taro"] },
     ]);
     expect(parseInline("[ページ名]", opts)).toMatchObject([
       { t: "internal", v: "ページ名" },
@@ -157,6 +157,41 @@ describe("parseInline", () => {
     expect(parseInline("[/proj/page]", opts)).toMatchObject([
       { t: "internal", v: "/proj/page" },
     ]);
+  });
+
+  it("連続するアイコンを 1 つにまとめる", () => {
+    expect(parseInline("[taro.icon][jiro.icon]", opts)).toMatchObject([
+      { t: "icons", names: ["taro", "jiro"] },
+    ]);
+  });
+
+  it("空白（半角・全角・タブ）を挟んだ連続アイコンもまとめる", () => {
+    expect(
+      parseInline("[taro.icon] [jiro.icon]　[saburo.icon]", opts),
+    ).toMatchObject([{ t: "icons", names: ["taro", "jiro", "saburo"] }]);
+  });
+
+  it("アイコン間の空白は先にアイコンが続く場合だけ吸収する", () => {
+    expect(parseInline("[taro.icon] です", opts)).toMatchObject([
+      { t: "icons", names: ["taro"] },
+      { t: "text", v: " です" },
+    ]);
+    expect(
+      parseInline("やった人: [taro.icon] [jiro.icon] 以上", opts),
+    ).toMatchObject([
+      { t: "text", v: "やった人: " },
+      { t: "icons", names: ["taro", "jiro"] },
+      { t: "text", v: " 以上" },
+    ]);
+  });
+
+  it("同じ名前の繰り返し（*n 表記や連続）は重複除去する", () => {
+    expect(parseInline("[taro.icon*3]", opts)).toMatchObject([
+      { t: "icons", names: ["taro"] },
+    ]);
+    expect(
+      parseInline("[taro.icon][taro.icon][jiro.icon]", opts),
+    ).toMatchObject([{ t: "icons", names: ["taro", "jiro"] }]);
   });
 });
 

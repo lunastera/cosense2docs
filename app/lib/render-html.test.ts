@@ -74,6 +74,13 @@ describe("convert (HTML)", () => {
     );
   });
 
+  it("アイコンは (name) 表記、連続は (a, b) にまとめる", () => {
+    expect(convert("[taro.icon]", opts)).toContain("(taro)");
+    expect(convert("同意 [taro.icon] [jiro.icon]", opts)).toContain(
+      "(taro, jiro)",
+    );
+  });
+
   it("テーブル（先頭行はヘッダー）", () => {
     const html = convert("table:t\n a\tb\n c\td", opts);
     expect(html).toContain("<table");
