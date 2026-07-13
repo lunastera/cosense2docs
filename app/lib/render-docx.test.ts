@@ -5,10 +5,12 @@ import type { Options } from "./parser";
 import { buildDocument, docName } from "./render-docx";
 import { SAMPLE } from "./sample";
 
-const opts: Options = { checklist: true, blank: true };
+const opts: Options = { checklist: true, blank: true, firstLineTitle: false };
+// SAMPLE はページ全体コピー（1 行目 = タイトル）を想定した内容
+const titleOpts: Options = { ...opts, firstLineTitle: true };
 
-async function documentXml(text: string): Promise<string> {
-  const buf = await Packer.toBuffer(buildDocument(text, opts));
+async function documentXml(text: string, o: Options = opts): Promise<string> {
+  const buf = await Packer.toBuffer(buildDocument(text, o));
   const zip = await JSZip.loadAsync(buf);
   const file = zip.file("word/document.xml");
   if (!file) throw new Error("word/document.xml not found");
@@ -17,14 +19,14 @@ async function documentXml(text: string): Promise<string> {
 
 describe("buildDocument", () => {
   it("サンプル全体から有効な docx を生成できる", async () => {
-    const buf = await Packer.toBuffer(buildDocument(SAMPLE, opts));
+    const buf = await Packer.toBuffer(buildDocument(SAMPLE, titleOpts));
     // zip (PK) マジックナンバー
     expect(buf[0]).toBe(0x50);
     expect(buf[1]).toBe(0x4b);
   });
 
   it("document.xml に各要素が反映される", async () => {
-    const xml = await documentXml(SAMPLE);
+    const xml = await documentXml(SAMPLE, titleOpts);
     expect(xml).toContain("歓迎会の準備メモ"); // 見出しテキスト
     expect(xml).toContain('w:pStyle w:val="Heading1"'); // 見出しスタイル
     expect(xml).toContain("w:hyperlink"); // リンク
@@ -44,11 +46,11 @@ describe("buildDocument", () => {
 
 describe("docName", () => {
   it("手入力を優先し .docx 拡張子を除く", () => {
-    expect(docName(SAMPLE, opts, "my-file.docx")).toBe("my-file");
+    expect(docName(SAMPLE, titleOpts, "my-file.docx")).toBe("my-file");
   });
 
   it("先頭の見出しから生成する", () => {
-    expect(docName(SAMPLE, opts, "")).toBe("歓迎会の準備メモ");
+    expect(docName(SAMPLE, titleOpts, "")).toBe("歓迎会の準備メモ");
   });
 
   it("見出しがなければデフォルト名", () => {

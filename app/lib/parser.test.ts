@@ -6,9 +6,28 @@ import {
   parseInline,
 } from "./parser";
 
-const opts: Options = { checklist: true, blank: true };
+const opts: Options = { checklist: true, blank: true, firstLineTitle: false };
 
 describe("parseBlocks", () => {
+  it("firstLineTitle 有効時は最初の行をタイトル（H1）にする", () => {
+    const blocks = parseBlocks("ページタイトル\n本文です", {
+      ...opts,
+      firstLineTitle: true,
+    });
+    expect(blocks[0]).toMatchObject({ type: "heading", level: 1 });
+    expect(blocks[1]).toMatchObject({ type: "p" });
+  });
+
+  it("firstLineTitle 有効でも最初の行が空ならタイトルにしない", () => {
+    const blocks = parseBlocks("\n本文です", { ...opts, firstLineTitle: true });
+    expect(blocks[0]).toMatchObject({ type: "blank" });
+    expect(blocks[1]).toMatchObject({ type: "p" });
+  });
+
+  it("firstLineTitle 無効時は最初の行を通常どおり扱う", () => {
+    expect(parseBlocks("ページタイトル", opts)[0]).toMatchObject({ type: "p" });
+  });
+
   it("行全体の [*** ] [** ] [* ] を見出しにする", () => {
     expect(parseBlocks("[*** タイトル]", opts)[0]).toMatchObject({
       type: "heading",

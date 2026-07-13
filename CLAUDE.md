@@ -31,6 +31,7 @@ React Router v8, React 19, TypeScript, Tailwind CSS v4, Vite, Biome, Vitest, doc
 - 行全体が `[* 文言]`（インデントなし）のときだけ見出し。`***`=h1, `**`=h2, `*`=h3。文中の `[* ...]` は太字
 - 先頭の空白 1 文字 = 箇条書き 1 レベル（Cosense 仕様）
 - `[_]`（チェックリスト）と `[.icon]`（記入欄）は Cosense 非公式のためトグルで有効/無効を切り替える。新たな非公式変換を足すときも同様に `Options` に追加してトグルにする
+- 「1行目をタイトル（H1）にする」もトグル（デフォルト有効）。Cosense のページ全体コピーでは 1 行目がページタイトルになるため
 
 ## Development Commands
 

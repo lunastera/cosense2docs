@@ -8,7 +8,11 @@ import { SAMPLE } from "~/lib/sample";
 const STORAGE_SRC = "cosense2docs:src";
 const STORAGE_OPTS = "cosense2docs:opts";
 
-const DEFAULT_OPTIONS: Options = { checklist: true, blank: true };
+const DEFAULT_OPTIONS: Options = {
+  checklist: true,
+  blank: true,
+  firstLineTitle: true,
+};
 
 function loadInitialText(): string {
   try {
@@ -21,7 +25,13 @@ function loadInitialText(): string {
 function loadInitialOptions(): Options {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_OPTS) ?? "null");
-    if (saved) return { checklist: !!saved.checklist, blank: !!saved.blank };
+    if (saved)
+      return {
+        checklist: !!saved.checklist,
+        blank: !!saved.blank,
+        // 追加前に保存された設定にはキーがないので、明示的に false のときだけ無効にする
+        firstLineTitle: saved.firstLineTitle !== false,
+      };
   } catch {}
   return DEFAULT_OPTIONS;
 }

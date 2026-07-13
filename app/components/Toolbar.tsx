@@ -27,6 +27,16 @@ export function Toolbar({
         <label className="inline-flex cursor-pointer select-none items-center gap-1.5 text-xs">
           <input
             type="checkbox"
+            checked={options.firstLineTitle}
+            onChange={(e) =>
+              onOptionsChange({ ...options, firstLineTitle: e.target.checked })
+            }
+          />
+          1行目をタイトルにする
+        </label>
+        <label className="inline-flex cursor-pointer select-none items-center gap-1.5 text-xs">
+          <input
+            type="checkbox"
             checked={options.checklist}
             onChange={(e) =>
               onOptionsChange({ ...options, checklist: e.target.checked })

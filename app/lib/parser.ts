@@ -10,6 +10,11 @@ export type Options = {
   checklist: boolean;
   /** 非公式記法 [.icon] を記入欄に変換する */
   blank: boolean;
+  /**
+   * 最初の行をタイトル（H1）にする。
+   * Cosense でページ全体を選択コピーすると 1 行目がページタイトルになるため。
+   */
+  firstLineTitle: boolean;
 };
 
 export type InlineNode =
@@ -45,6 +50,15 @@ export function parseBlocks(text: string, opts: Options): Block[] {
   const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
   const blocks: Block[] = [];
   let i = 0;
+
+  if (opts.firstLineTitle && lines.length > 0 && lines[0].trim() !== "") {
+    blocks.push({
+      type: "heading",
+      level: 1,
+      nodes: parseInline(lines[0].trim(), opts),
+    });
+    i = 1;
+  }
 
   // base より深いインデントの行を収集する（間の空行は、後続がまだブロック内なら含める）
   const collectIndented = (base: number): string[] => {

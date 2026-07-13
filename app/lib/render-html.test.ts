@@ -2,13 +2,22 @@ import { describe, expect, it } from "vitest";
 import type { Options } from "./parser";
 import { convert } from "./render-html";
 
-const opts: Options = { checklist: true, blank: true };
+const opts: Options = { checklist: true, blank: true, firstLineTitle: false };
 
 describe("convert (HTML)", () => {
   it("見出し", () => {
     expect(convert("[*** タイトル]", opts)).toContain("<h1>タイトル</h1>");
     expect(convert("[** 見出し]", opts)).toContain("<h2>見出し</h2>");
     expect(convert("[* 小見出し]", opts)).toContain("<h3>小見出し</h3>");
+  });
+
+  it("firstLineTitle 有効時は 1 行目が h1 になる", () => {
+    const html = convert("ページタイトル\n本文", {
+      ...opts,
+      firstLineTitle: true,
+    });
+    expect(html).toContain("<h1>ページタイトル</h1>");
+    expect(html).toContain("<p>本文</p>");
   });
 
   it("文中の [* ] は太字", () => {
