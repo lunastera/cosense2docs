@@ -29,6 +29,25 @@ type RunProps = {
   strike?: boolean;
   color?: string;
   size?: number;
+  font?: string;
+  underline?: Record<string, never>;
+  shading?: {
+    type: (typeof ShadingType)[keyof typeof ShadingType];
+    fill: string;
+  };
+};
+
+/** styled ノードの各スタイルを docx の文字プロパティに対応づける */
+const STYLED_RUN_PROPS: Record<string, RunProps> = {
+  note: { color: "6B7280", size: 18 },
+  gray: { color: "6B7280" },
+  red: { color: "DC2626" },
+  underline: { underline: {} },
+  mono: {
+    font: "Consolas",
+    shading: { type: ShadingType.CLEAR, fill: "F1F3F5" },
+  },
+  plain: {},
 };
 
 function nodesToRuns(
@@ -71,10 +90,12 @@ function nodesToRuns(
           }),
         );
         break;
-      case "note":
-        out.push(
-          ...nodesToRuns(n.ch, { ...inherit, color: "6B7280", size: 18 }),
-        );
+      case "styled":
+        if (n.style !== "remove") {
+          out.push(
+            ...nodesToRuns(n.ch, { ...inherit, ...STYLED_RUN_PROPS[n.style] }),
+          );
+        }
         break;
       case "checkbox":
         out.push(new TextRun({ text: "☐", ...inherit }));
@@ -94,7 +115,8 @@ function nodesToRuns(
         );
         break;
       case "internal":
-        out.push(new TextRun({ text: n.v, ...inherit }));
+        // 変換対象にならなかったブラケットは原文のまま残す
+        out.push(new TextRun({ text: `[${n.v}]`, ...inherit }));
         break;
     }
   }

@@ -3,26 +3,96 @@
  * テキストをブロック（見出し・箇条書き・コードブロック等）と
  * インラインノード（太字・リンク・インラインコード等）のツリーに変換する。
  * レンダリング（HTML / docx）には依存しない。
+ *
+ * Cosense の公式記法（装飾・リンク・コード等）の解釈は固定で、
+ * 非公式な変換はすべてユーザー定義の「拡張ルール」（CustomRule）として扱う。
  */
 
+/** 拡張ルールの変換方法（プリセット）。HTML / docx の両方で再現できるものに限る */
+export type EffectId =
+  | "note"
+  | "checkbox"
+  | "blank"
+  | "bold"
+  | "italic"
+  | "strike"
+  | "underline"
+  | "gray"
+  | "red"
+  | "mono"
+  | "plain"
+  | "remove";
+
+/**
+ * ユーザー定義の拡張変換ルール。
+ * ブラケット [ ] の中身がパターンに完全一致したら、プリセットの変換方法を適用する。
+ * パターンに捕捉グループがあれば $1 が表示テキストになり、なければ中身全体を使う。
+ */
+export type CustomRule = {
+  id: string;
+  enabled: boolean;
+  /** ブラケット [ ] の中身全体にマッチする正規表現（^ $ は自動で付く） */
+  pattern: string;
+  /**
+   * 変換方法の種別。現状はプリセット選択（"preset"）のみ。
+   * 将来、変換定義を自由に書く高度なモードを追加する際は
+   * ここに別の kind を足して判別する。
+   */
+  kind: "preset";
+  effect: EffectId;
+};
+
+/** 初期状態で用意する拡張ルール（ユーザーが編集・削除できる） */
+export const DEFAULT_RULES: CustomRule[] = [
+  {
+    id: "checklist",
+    enabled: true,
+    pattern: "_",
+    kind: "preset",
+    effect: "checkbox",
+  },
+  {
+    id: "blank",
+    enabled: true,
+    pattern: "\\.icon",
+    kind: "preset",
+    effect: "blank",
+  },
+  {
+    id: "note",
+    enabled: true,
+    pattern: "~ (.+)",
+    kind: "preset",
+    effect: "note",
+  },
+];
+
 export type Options = {
-  /** 非公式記法 [_] をチェックリスト項目に変換する */
-  checklist: boolean;
-  /** 非公式記法 [.icon] を記入欄に変換する */
-  blank: boolean;
   /**
    * 最初の行をタイトル（H1）にする。
    * Cosense でページ全体を選択コピーすると 1 行目がページタイトルになるため。
    */
   firstLineTitle: boolean;
+  /** 拡張変換ルール（上から順に評価し、最初にマッチしたものを適用する） */
+  rules: CustomRule[];
 };
+
+/** 中身つきのスタイル系プリセットに対応するノードのスタイル */
+export type StyledStyle =
+  | "note"
+  | "underline"
+  | "gray"
+  | "red"
+  | "mono"
+  | "plain"
+  | "remove";
 
 export type InlineNode =
   | { t: "text"; v: string }
   | { t: "code"; v: string }
   | { t: "link"; href: string; label: string }
   | { t: "deco"; b?: boolean; i?: boolean; s?: boolean; ch: InlineNode[] }
-  | { t: "note"; ch: InlineNode[] }
+  | { t: "styled"; style: StyledStyle; ch: InlineNode[] }
   | { t: "checkbox" }
   | { t: "blank" }
   | { t: "icons"; names: string[] }
@@ -40,6 +110,35 @@ export type Block =
   | { type: "code"; name: string; lines: string[] }
   | { type: "table"; name: string; rows: string[][] };
 
+/** ルールのパターンが正規表現として妥当かを検証し、エラーメッセージか null を返す */
+export function validateRulePattern(pattern: string): string | null {
+  try {
+    new RegExp(pattern);
+    return null;
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  }
+}
+
+type CompiledRule = { re: RegExp; effect: EffectId };
+
+/** パース中に引き回す文脈。ルールはここでコンパイル済みにしておく */
+type Ctx = { compiled: CompiledRule[] };
+
+/** 不正な正規表現・無効化されたルールは除外してコンパイルする */
+function makeCtx(opts: Options): Ctx {
+  const compiled: CompiledRule[] = [];
+  for (const r of opts.rules) {
+    if (!r.enabled) continue;
+    try {
+      compiled.push({ re: new RegExp(`^(?:${r.pattern})$`), effect: r.effect });
+    } catch {
+      // 不正なパターンはスキップ（UI 側で validateRulePattern により警告する）
+    }
+  }
+  return { compiled };
+}
+
 /** Cosense は先頭の空白 1 文字 = 1 インデントレベル */
 function leadingIndent(line: string): number {
   const m = line.match(/^[\t ]*/);
@@ -47,6 +146,7 @@ function leadingIndent(line: string): number {
 }
 
 export function parseBlocks(text: string, opts: Options): Block[] {
+  const ctx = makeCtx(opts);
   const lines = String(text).replace(/\r\n?/g, "\n").split("\n");
   const blocks: Block[] = [];
   let i = 0;
@@ -55,7 +155,7 @@ export function parseBlocks(text: string, opts: Options): Block[] {
     blocks.push({
       type: "heading",
       level: 1,
-      nodes: parseInline(lines[0].trim(), opts),
+      nodes: inline(lines[0].trim(), ctx),
     });
     i = 1;
   }
@@ -117,7 +217,7 @@ export function parseBlocks(text: string, opts: Options): Block[] {
     if (content.startsWith(">")) {
       blocks.push({
         type: "quote",
-        nodes: parseInline(content.slice(1).replace(/^ /, ""), opts),
+        nodes: inline(content.slice(1).replace(/^ /, ""), ctx),
       });
       i++;
       continue;
@@ -133,7 +233,7 @@ export function parseBlocks(text: string, opts: Options): Block[] {
     if (m && indent === 0 && !m[2].includes("]")) {
       const s = m[1].length;
       const level: HeadingLevel = s >= 3 ? 1 : s === 2 ? 2 : 3;
-      blocks.push({ type: "heading", level, nodes: parseInline(m[2], opts) });
+      blocks.push({ type: "heading", level, nodes: inline(m[2], ctx) });
       i++;
       continue;
     }
@@ -142,13 +242,13 @@ export function parseBlocks(text: string, opts: Options): Block[] {
       blocks.push({
         type: "li",
         level: indent,
-        nodes: parseInline(content, opts),
+        nodes: inline(content, ctx),
       });
       i++;
       continue;
     }
 
-    blocks.push({ type: "p", nodes: parseInline(content, opts) });
+    blocks.push({ type: "p", nodes: inline(content, ctx) });
     i++;
   }
   return blocks;
@@ -170,23 +270,46 @@ function pushText(nodes: InlineNode[], text: string): void {
   if (last < text.length) nodes.push({ t: "text", v: text.slice(last) });
 }
 
-function bracketNode(inner: string, opts: Options): InlineNode | null {
-  if (inner === "hr.icon") return { t: "text", v: "―――" };
-  if (inner === "_") return opts.checklist ? { t: "checkbox" } : null;
-  if (inner === ".icon") return opts.blank ? { t: "blank" } : null;
+/** 拡張ルールのプリセットをインラインノードに落とす */
+function effectNode(effect: EffectId, content: string, ctx: Ctx): InlineNode {
+  switch (effect) {
+    case "checkbox":
+      return { t: "checkbox" };
+    case "blank":
+      return { t: "blank" };
+    case "bold":
+      return { t: "deco", b: true, ch: inline(content, ctx) };
+    case "italic":
+      return { t: "deco", i: true, ch: inline(content, ctx) };
+    case "strike":
+      return { t: "deco", s: true, ch: inline(content, ctx) };
+    case "remove":
+      return { t: "styled", style: "remove", ch: [] };
+    default:
+      return { t: "styled", style: effect, ch: inline(content, ctx) };
+  }
+}
 
-  // 装飾記法 [* ...] [/ ...] [- ...] [~ ...] と組み合わせ
-  const m = inner.match(/^([*/\-~]+)[\t ]+([\s\S]+)$/);
+function bracketNode(inner: string, ctx: Ctx): InlineNode | null {
+  // 拡張ルールを公式記法より先に評価する（[_] や [~ ...] を上書きできるようにするため）
+  for (const rule of ctx.compiled) {
+    const m = rule.re.exec(inner);
+    if (m) return effectNode(rule.effect, m[1] ?? inner, ctx);
+  }
+
+  if (inner === "hr.icon") return { t: "text", v: "―――" };
+
+  // 装飾記法 [* ...] [/ ...] [- ...] と組み合わせ
+  const m = inner.match(/^([*/-]+)[\t ]+([\s\S]+)$/);
   if (m) {
     const deco = m[1];
     const body = m[2];
-    if (deco.includes("~")) return { t: "note", ch: parseInline(body, opts) };
     return {
       t: "deco",
       b: deco.includes("*"),
       i: deco.includes("/"),
       s: deco.includes("-"),
-      ch: parseInline(body, opts),
+      ch: inline(body, ctx),
     };
   }
 
@@ -204,8 +327,9 @@ function bracketNode(inner: string, opts: Options): InlineNode | null {
       return { t: "link", href: last, label: inner.slice(0, lsp).trim() };
   }
 
-  if (/\.icon(\*\d+)?$/.test(inner)) {
-    return { t: "icons", names: [inner.replace(/\.icon(\*\d+)?$/, "")] };
+  const icon = inner.match(/^(.+?)\.icon(\*\d+)?$/);
+  if (icon) {
+    return { t: "icons", names: [icon[1]] };
   }
 
   // 内部リンク [ページ名] / [/project/page] はテキストとして残す
@@ -253,7 +377,7 @@ function groupIcons(nodes: InlineNode[]): InlineNode[] {
   return out;
 }
 
-export function parseInline(s: string, opts: Options): InlineNode[] {
+function inline(s: string, ctx: Ctx): InlineNode[] {
   const nodes: InlineNode[] = [];
   let buf = "";
   const flush = () => {
@@ -290,7 +414,7 @@ export function parseInline(s: string, opts: Options): InlineNode[] {
     if (c === "[") {
       const j = s.indexOf("]", i + 1);
       if (j > 0) {
-        const node = bracketNode(s.slice(i + 1, j), opts);
+        const node = bracketNode(s.slice(i + 1, j), ctx);
         if (node) {
           flush();
           nodes.push(node);
@@ -306,6 +430,10 @@ export function parseInline(s: string, opts: Options): InlineNode[] {
   return groupIcons(nodes);
 }
 
+export function parseInline(s: string, opts: Options): InlineNode[] {
+  return inline(s, makeCtx(opts));
+}
+
 /** インラインノード列からプレーンテキストを取り出す（ファイル名生成などに使用） */
 export function nodesToPlainText(nodes: InlineNode[]): string {
   return nodes
@@ -319,7 +447,7 @@ export function nodesToPlainText(nodes: InlineNode[]): string {
         case "link":
           return n.label;
         case "deco":
-        case "note":
+        case "styled":
           return nodesToPlainText(n.ch);
         case "icons":
           return n.names.join(", ");

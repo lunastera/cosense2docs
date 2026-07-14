@@ -15,7 +15,7 @@ React Router v8, React 19, TypeScript, Tailwind CSS v4, Vite, Biome, Vitest, doc
 - **SPA mode**: `ssr: false` in `react-router.config.ts`; single page (`app/routes/home.tsx`), no page transitions
 - **GitHub Pages**: Base path auto-detected from repository name via `GITHUB_REPOSITORY` environment variable
 - **3-stage conversion**: `parser.ts`（記法 → ブロック/インラインノードのツリー）→ `render-html.ts` / `render-docx.ts`（ツリー → 出力）。パーサーはレンダラーに依存しない
-- **Local state only**: 入力テキストとオプションは localStorage に保存（`cosense2docs:src` / `cosense2docs:opts`）
+- **Local state only**: 入力テキスト・オプション・拡張ルールは localStorage に保存（`cosense2docs:src` / `cosense2docs:opts` / `cosense2docs:rules`）
 
 ## Key Files
 
@@ -24,14 +24,17 @@ React Router v8, React 19, TypeScript, Tailwind CSS v4, Vite, Biome, Vitest, doc
 - `app/lib/render-html.ts`: HTML 出力。コピーして Word / Google Docs に貼れるよう装飾はインラインスタイル
 - `app/lib/render-docx.ts`: docx 出力（`docx` パッケージ）。ファイル名決定ロジック（`docName`）もここ
 - `app/lib/sample.ts`: 初回表示のサンプルテキスト。実在の人名・プロダクト名は載せない
-- `app/components/Toolbar.tsx`: トグル（非公式記法の変換オプション）・ファイル名・コピー/ダウンロードボタン
+- `app/components/Toolbar.tsx`: タイトルトグル・拡張ルール開閉・ファイル名・コピー/ダウンロードボタン
+- `app/components/RulesPanel.tsx`: 拡張ルールの編集 UI（追加・削除・有効切替・正規表現エラー表示）
 
 ## Conversion Semantics
 
 - 行全体が `[* 文言]`（インデントなし）のときだけ見出し。`***`=h1, `**`=h2, `*`=h3。文中の `[* ...]` は太字
 - 先頭の空白 1 文字 = 箇条書き 1 レベル（Cosense 仕様）
-- `[_]`（チェックリスト）と `[.icon]`（記入欄）は Cosense 非公式のためトグルで有効/無効を切り替える。新たな非公式変換を足すときも同様に `Options` に追加してトグルにする
-- 「1行目をタイトル（H1）にする」もトグル（デフォルト有効）。Cosense のページ全体コピーでは 1 行目がページタイトルになるため
+- 非公式な変換はすべてユーザー編集可能な「拡張ルール」（`CustomRule`: ブラケット中身の正規表現 → プリセット効果）。`[_]` / `[.icon]` / `[~ ...]` は `DEFAULT_RULES` として提供。ルールは公式記法より先に評価される
+- プリセット（`EffectId`）は HTML / docx の両方で再現できるものに限る。`CustomRule.kind` は将来の高度なモード（自由な変換定義）追加を見据えた判別用フィールドで、現状 "preset" のみ
+- 「1行目をタイトル（H1）にする」はトグル（デフォルト有効）。Cosense のページ全体コピーでは 1 行目がページタイトルになるため
+- 変換対象にならなかったブラケット（内部リンク等）は `[ページ名]` の形のまま残す
 
 ## Development Commands
 

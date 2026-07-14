@@ -1,8 +1,18 @@
 import { describe, expect, it } from "vitest";
-import type { Options } from "./parser";
+import { DEFAULT_RULES, type Options } from "./parser";
 import { convert } from "./render-html";
 
-const opts: Options = { checklist: true, blank: true, firstLineTitle: false };
+const opts: Options = { firstLineTitle: false, rules: DEFAULT_RULES };
+
+/** デフォルトルールのうち id のものを無効化した Options */
+function withoutRule(id: string): Options {
+  return {
+    ...opts,
+    rules: DEFAULT_RULES.map((r) =>
+      r.id === id ? { ...r, enabled: false } : r,
+    ),
+  };
+}
 
 describe("convert (HTML)", () => {
   it("見出し", () => {
@@ -69,18 +79,14 @@ describe("convert (HTML)", () => {
 
   it("トグル: チェックリスト", () => {
     expect(convert("\t[_] タスク", opts)).toContain("☐ タスク");
-    expect(convert("\t[_] タスク", { ...opts, checklist: false })).toContain(
-      "[_] タスク",
-    );
+    expect(convert("\t[_] タスク", withoutRule("checklist"))).toContain("[_]");
   });
 
   it("トグル: 記入欄", () => {
     expect(convert("担当: [.icon]", opts)).toContain(
       "text-decoration:underline",
     );
-    expect(convert("担当: [.icon]", { ...opts, blank: false })).toContain(
-      "[.icon]",
-    );
+    expect(convert("担当: [.icon]", withoutRule("blank"))).toContain("[.icon]");
   });
 
   it("アイコンは (name) 表記、連続は (a, b) にまとめる", () => {
@@ -95,6 +101,25 @@ describe("convert (HTML)", () => {
     expect(html).toContain("<table");
     expect(html).toContain(">a</th>");
     expect(html).toContain(">d</td>");
+  });
+
+  it("ユーザー定義ルール（赤文字）が HTML に反映される", () => {
+    const o: Options = {
+      ...opts,
+      rules: [
+        {
+          id: "warn",
+          enabled: true,
+          kind: "preset",
+          pattern: "! (.+)",
+          effect: "red",
+        },
+        ...DEFAULT_RULES,
+      ],
+    };
+    expect(convert("[! 注意]", o)).toContain(
+      '<span style="color:#dc2626;">注意</span>',
+    );
   });
 
   it("HTML をエスケープする", () => {

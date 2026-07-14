@@ -1,11 +1,11 @@
 import { Packer } from "docx";
 import JSZip from "jszip";
 import { describe, expect, it } from "vitest";
-import type { Options } from "./parser";
+import { DEFAULT_RULES, type Options } from "./parser";
 import { buildDocument, docName } from "./render-docx";
 import { SAMPLE } from "./sample";
 
-const opts: Options = { checklist: true, blank: true, firstLineTitle: false };
+const opts: Options = { firstLineTitle: false, rules: DEFAULT_RULES };
 // SAMPLE はページ全体コピー（1 行目 = タイトル）を想定した内容
 const titleOpts: Options = { ...opts, firstLineTitle: true };
 

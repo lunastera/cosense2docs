@@ -1,8 +1,8 @@
-import type { Options } from "~/lib/parser";
-
 type Props = {
-  options: Options;
-  onOptionsChange: (options: Options) => void;
+  firstLineTitle: boolean;
+  onFirstLineTitleChange: (value: boolean) => void;
+  rulesOpen: boolean;
+  onToggleRules: () => void;
   filename: string;
   onFilenameChange: (filename: string) => void;
   onCopyRich: () => void;
@@ -11,8 +11,10 @@ type Props = {
 };
 
 export function Toolbar({
-  options,
-  onOptionsChange,
+  firstLineTitle,
+  onFirstLineTitleChange,
+  rulesOpen,
+  onToggleRules,
   filename,
   onFilenameChange,
   onCopyRich,
@@ -23,38 +25,21 @@ export function Toolbar({
     "rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs text-gray-800 hover:bg-gray-50";
   return (
     <div className="flex flex-wrap items-center gap-3.5 border-b border-gray-300 px-5 pb-3">
-      <div className="flex flex-wrap gap-3.5">
-        <label className="inline-flex cursor-pointer select-none items-center gap-1.5 text-xs">
-          <input
-            type="checkbox"
-            checked={options.firstLineTitle}
-            onChange={(e) =>
-              onOptionsChange({ ...options, firstLineTitle: e.target.checked })
-            }
-          />
-          1行目をタイトルにする
-        </label>
-        <label className="inline-flex cursor-pointer select-none items-center gap-1.5 text-xs">
-          <input
-            type="checkbox"
-            checked={options.checklist}
-            onChange={(e) =>
-              onOptionsChange({ ...options, checklist: e.target.checked })
-            }
-          />
-          [_] をチェックリストに変換
-        </label>
-        <label className="inline-flex cursor-pointer select-none items-center gap-1.5 text-xs">
-          <input
-            type="checkbox"
-            checked={options.blank}
-            onChange={(e) =>
-              onOptionsChange({ ...options, blank: e.target.checked })
-            }
-          />
-          [.icon] を記入欄に変換
-        </label>
-      </div>
+      <label className="inline-flex cursor-pointer select-none items-center gap-1.5 text-xs">
+        <input
+          type="checkbox"
+          checked={firstLineTitle}
+          onChange={(e) => onFirstLineTitleChange(e.target.checked)}
+        />
+        1行目をタイトルにする
+      </label>
+      <button
+        type="button"
+        className={`${buttonClass} ${rulesOpen ? "bg-gray-100" : ""}`}
+        onClick={onToggleRules}
+      >
+        拡張ルール {rulesOpen ? "▲" : "▼"}
+      </button>
       <div className="flex-1" />
       <input
         type="text"

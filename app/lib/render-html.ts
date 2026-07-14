@@ -15,6 +15,10 @@ const S = {
   quote:
     "border-left:3px solid #d1d5db;color:#57606a;margin:.4em 0;padding:.1em .9em;",
   note: "color:#6b7280;font-size:.88em;",
+  gray: "color:#6b7280;",
+  red: "color:#dc2626;",
+  underline: "text-decoration:underline;text-underline-offset:3px;",
+  mono: "font-family:ui-monospace,SF Mono,Menlo,Consolas,monospace;font-size:.88em;background:#f1f3f5;border-radius:4px;padding:1px 5px;",
   blank: "text-decoration:underline;text-underline-offset:3px;white-space:pre;",
   hr: "border:none;border-top:1px solid #d1d5db;margin:1.1em 0;",
   table: "border-collapse:collapse;margin:.5em 0;",
@@ -51,9 +55,19 @@ export function nodesToHtml(nodes: InlineNode[]): string {
         out += inner;
         break;
       }
-      case "note":
-        out += `<span style="${S.note}">${nodesToHtml(n.ch)}</span>`;
+      case "styled": {
+        const inner = nodesToHtml(n.ch);
+        switch (n.style) {
+          case "remove":
+            break;
+          case "plain":
+            out += inner;
+            break;
+          default:
+            out += `<span style="${S[n.style]}">${inner}</span>`;
+        }
         break;
+      }
       case "checkbox":
         out += "☐";
         break;
@@ -64,7 +78,8 @@ export function nodesToHtml(nodes: InlineNode[]): string {
         out += `<span style="${S.icon}">(${esc(n.names.join(", "))})</span>`;
         break;
       case "internal":
-        out += `<span class="internal">${esc(n.v)}</span>`;
+        // 変換対象にならなかったブラケットは原文のまま残す
+        out += `<span class="internal">[${esc(n.v)}]</span>`;
         break;
     }
   }

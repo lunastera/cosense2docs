@@ -1,18 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RulesPanel } from "~/components/RulesPanel";
 import { Toolbar } from "~/components/Toolbar";
-import type { Options } from "~/lib/parser";
+import type { CustomRule, Options } from "~/lib/parser";
+import { DEFAULT_RULES } from "~/lib/parser";
 import { docName, generateDocxBlob } from "~/lib/render-docx";
 import { convert } from "~/lib/render-html";
 import { SAMPLE } from "~/lib/sample";
 
 const STORAGE_SRC = "cosense2docs:src";
 const STORAGE_OPTS = "cosense2docs:opts";
-
-const DEFAULT_OPTIONS: Options = {
-  checklist: true,
-  blank: true,
-  firstLineTitle: true,
-};
+const STORAGE_RULES = "cosense2docs:rules";
 
 function loadInitialText(): string {
   try {
@@ -22,36 +19,77 @@ function loadInitialText(): string {
   return SAMPLE;
 }
 
-function loadInitialOptions(): Options {
+function loadInitialFirstLineTitle(): boolean {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_OPTS) ?? "null");
-    if (saved)
-      return {
-        checklist: !!saved.checklist,
-        blank: !!saved.blank,
-        // 追加前に保存された設定にはキーがないので、明示的に false のときだけ無効にする
-        firstLineTitle: saved.firstLineTitle !== false,
-      };
+    // キーがない（古い保存データ）場合は有効として扱う
+    if (saved) return saved.firstLineTitle !== false;
   } catch {}
-  return DEFAULT_OPTIONS;
+  return true;
+}
+
+function isCustomRule(r: unknown): r is CustomRule {
+  if (typeof r !== "object" || r === null) return false;
+  const o = r as Record<string, unknown>;
+  return (
+    typeof o.id === "string" &&
+    typeof o.enabled === "boolean" &&
+    typeof o.pattern === "string" &&
+    o.kind === "preset" &&
+    typeof o.effect === "string"
+  );
+}
+
+function loadInitialRules(): CustomRule[] {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_RULES) ?? "null");
+    if (saved && Array.isArray(saved.rules)) {
+      return saved.rules.filter(isCustomRule);
+    }
+    // ルール保存がない場合: 旧トグル設定（checklist / blank）を
+    // デフォルトルールの有効状態に引き継ぐ
+    const legacy = JSON.parse(localStorage.getItem(STORAGE_OPTS) ?? "null");
+    if (legacy) {
+      return DEFAULT_RULES.map((r) => {
+        if (r.id === "checklist" && legacy.checklist === false)
+          return { ...r, enabled: false };
+        if (r.id === "blank" && legacy.blank === false)
+          return { ...r, enabled: false };
+        return r;
+      });
+    }
+  } catch {}
+  return DEFAULT_RULES;
 }
 
 export default function Home() {
   const [text, setText] = useState(loadInitialText);
-  const [options, setOptions] = useState(loadInitialOptions);
+  const [firstLineTitle, setFirstLineTitle] = useState(
+    loadInitialFirstLineTitle,
+  );
+  const [rules, setRules] = useState(loadInitialRules);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [filename, setFilename] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(null);
   const previewRef = useRef<HTMLDivElement>(null);
 
+  const options = useMemo<Options>(
+    () => ({ firstLineTitle, rules }),
+    [firstLineTitle, rules],
+  );
   const html = useMemo(() => convert(text, options), [text, options]);
 
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_SRC, text);
-      localStorage.setItem(STORAGE_OPTS, JSON.stringify(options));
+      localStorage.setItem(STORAGE_OPTS, JSON.stringify({ firstLineTitle }));
+      localStorage.setItem(
+        STORAGE_RULES,
+        JSON.stringify({ version: 1, rules }),
+      );
     } catch {}
-  }, [text, options]);
+  }, [text, firstLineTitle, rules]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -111,14 +149,18 @@ export default function Home() {
       </header>
 
       <Toolbar
-        options={options}
-        onOptionsChange={setOptions}
+        firstLineTitle={firstLineTitle}
+        onFirstLineTitleChange={setFirstLineTitle}
+        rulesOpen={rulesOpen}
+        onToggleRules={() => setRulesOpen((v) => !v)}
         filename={filename}
         onFilenameChange={setFilename}
         onCopyRich={copyRich}
         onCopyHtml={copyHtml}
         onDownloadDocx={downloadDocx}
       />
+
+      {rulesOpen && <RulesPanel rules={rules} onChange={setRules} />}
 
       <main className="grid min-h-0 flex-1 grid-cols-1 gap-3.5 p-4 md:grid-cols-2">
         <section className="flex min-h-72 min-w-0 flex-col">

@@ -1,12 +1,37 @@
 import { describe, expect, it } from "vitest";
 import {
+  type CustomRule,
+  DEFAULT_RULES,
   nodesToPlainText,
   type Options,
   parseBlocks,
   parseInline,
 } from "./parser";
 
-const opts: Options = { checklist: true, blank: true, firstLineTitle: false };
+const opts: Options = { firstLineTitle: false, rules: DEFAULT_RULES };
+
+/** デフォルトルールのうち id のものを無効化した Options */
+function withoutRule(id: string): Options {
+  return {
+    ...opts,
+    rules: DEFAULT_RULES.map((r) =>
+      r.id === id ? { ...r, enabled: false } : r,
+    ),
+  };
+}
+
+/** 追加ルールつきの Options */
+function withRule(
+  rule: Partial<CustomRule> & Pick<CustomRule, "pattern" | "effect">,
+): Options {
+  return {
+    ...opts,
+    rules: [
+      { id: "test", enabled: true, kind: "preset", ...rule },
+      ...DEFAULT_RULES,
+    ],
+  };
+}
 
 describe("parseBlocks", () => {
   it("firstLineTitle 有効時は最初の行をタイトル（H1）にする", () => {
@@ -115,8 +140,13 @@ describe("parseInline", () => {
     ]);
   });
 
-  it("[~ 注記] を補足にする", () => {
-    expect(parseInline("[~ 注記です]", opts)).toMatchObject([{ t: "note" }]);
+  it("[~ 注記] を補足にする（デフォルトルール）", () => {
+    expect(parseInline("[~ 注記です]", opts)).toMatchObject([
+      { t: "styled", style: "note" },
+    ]);
+    expect(parseInline("[~ 注記です]", withoutRule("note"))).toMatchObject([
+      { t: "internal", v: "~ 注記です" },
+    ]);
   });
 
   it("リンク記法（URL 先頭 / 末尾 / URL のみ / 裸 URL）", () => {
@@ -146,24 +176,26 @@ describe("parseInline", () => {
     ]);
   });
 
-  it("[_] はトグルに応じてチェックボックスになる", () => {
+  it("[_] はルールの有効/無効に応じてチェックボックスになる", () => {
     expect(parseInline("[_] タスク", opts)).toMatchObject([
       { t: "checkbox" },
       { t: "text" },
     ]);
-    expect(
-      parseInline("[_] タスク", { ...opts, checklist: false }),
-    ).toMatchObject([{ t: "text", v: "[_] タスク" }]);
+    expect(parseInline("[_] タスク", withoutRule("checklist"))).toMatchObject([
+      { t: "internal", v: "_" },
+      { t: "text", v: " タスク" },
+    ]);
   });
 
-  it("[.icon] はトグルに応じて記入欄になる", () => {
+  it("[.icon] はルールの有効/無効に応じて記入欄になる", () => {
     expect(parseInline("担当: [.icon]", opts)).toMatchObject([
       { t: "text" },
       { t: "blank" },
     ]);
-    expect(
-      parseInline("担当: [.icon]", { ...opts, blank: false }),
-    ).toMatchObject([{ t: "text", v: "担当: [.icon]" }]);
+    expect(parseInline("担当: [.icon]", withoutRule("blank"))).toMatchObject([
+      { t: "text", v: "担当: " },
+      { t: "internal", v: ".icon" },
+    ]);
   });
 
   it("[name.icon] はアイコン、[ページ名] は内部リンク扱い", () => {
@@ -211,6 +243,89 @@ describe("parseInline", () => {
     expect(
       parseInline("[taro.icon][taro.icon][jiro.icon]", opts),
     ).toMatchObject([{ t: "icons", names: ["taro", "jiro"] }]);
+  });
+});
+
+describe("拡張ルール", () => {
+  it("ユーザー定義ルールが適用される（捕捉グループが表示テキスト）", () => {
+    const o = withRule({ pattern: "! (.+)", effect: "red" });
+    expect(parseInline("[! 注意]", o)).toMatchObject([
+      { t: "styled", style: "red", ch: [{ t: "text", v: "注意" }] },
+    ]);
+  });
+
+  it("捕捉グループがなければ中身全体が表示テキストになる", () => {
+    const o = withRule({ pattern: "TODO", effect: "bold" });
+    expect(parseInline("[TODO]", o)).toMatchObject([
+      { t: "deco", b: true, ch: [{ t: "text", v: "TODO" }] },
+    ]);
+  });
+
+  it("パターンは中身全体に完全一致（部分一致では発動しない）", () => {
+    const o = withRule({ pattern: "TODO", effect: "bold" });
+    expect(parseInline("[TODO あとで]", o)).toMatchObject([
+      { t: "internal", v: "TODO あとで" },
+    ]);
+  });
+
+  it("上のルールが優先される", () => {
+    const o: Options = {
+      ...opts,
+      rules: [
+        { id: "a", enabled: true, kind: "preset", pattern: "x", effect: "red" },
+        {
+          id: "b",
+          enabled: true,
+          kind: "preset",
+          pattern: "x",
+          effect: "gray",
+        },
+      ],
+    };
+    expect(parseInline("[x]", o)).toMatchObject([
+      { t: "styled", style: "red" },
+    ]);
+  });
+
+  it("公式記法より先に評価され、上書きできる", () => {
+    const o = withRule({ pattern: "\\* (.+)", effect: "red" });
+    expect(parseInline("これは [* 強調] です", o)).toMatchObject([
+      { t: "text" },
+      { t: "styled", style: "red" },
+      { t: "text" },
+    ]);
+  });
+
+  it("plain は中身をそのまま、remove は出力しない", () => {
+    const plain = withRule({ pattern: "raw:(.+)", effect: "plain" });
+    expect(parseInline("[raw:text]", plain)).toMatchObject([
+      { t: "styled", style: "plain", ch: [{ t: "text", v: "text" }] },
+    ]);
+    const remove = withRule({ pattern: "secret", effect: "remove" });
+    expect(parseInline("前[secret]後", remove)).toMatchObject([
+      { t: "text", v: "前" },
+      { t: "styled", style: "remove", ch: [] },
+      { t: "text", v: "後" },
+    ]);
+  });
+
+  it("不正な正規表現のルールは無視される", () => {
+    const o = withRule({ pattern: "(", effect: "red" });
+    expect(() => parseInline("[x]", o)).not.toThrow();
+    expect(parseInline("[x]", o)).toMatchObject([{ t: "internal", v: "x" }]);
+  });
+
+  it("無効化されたルールは適用されない", () => {
+    const o = withRule({ pattern: "x", effect: "red", enabled: false });
+    expect(parseInline("[x]", o)).toMatchObject([{ t: "internal", v: "x" }]);
+  });
+});
+
+describe("validateRulePattern", () => {
+  it("妥当なパターンは null、不正なパターンはエラーメッセージを返す", async () => {
+    const { validateRulePattern } = await import("./parser");
+    expect(validateRulePattern("~ (.+)")).toBeNull();
+    expect(validateRulePattern("(")).toBeTruthy();
   });
 });
 
