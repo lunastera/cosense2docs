@@ -82,6 +82,29 @@ describe("parseBlocks", () => {
     ]);
   });
 
+  it("全角スペースもインデントとして扱う", () => {
+    expect(parseBlocks("　項目\n　　子項目", opts)).toMatchObject([
+      { type: "li", level: 1 },
+      { type: "li", level: 2 },
+    ]);
+  });
+
+  it("全角スペースでインデントされた code: ブロックを認識する", () => {
+    // 全角スペース indent の code: 行 + さらに深い中身
+    const blocks = parseBlocks(
+      "　 code:mail（宛先）\n　  一斉メール文面\n　  二行目",
+      opts,
+    );
+    expect(blocks[0]).toMatchObject({
+      type: "code",
+      name: "mail（宛先）",
+      lines: ["一斉メール文面", "二行目"],
+    });
+    // indent 0 の code: 行 + 全角スペース indent の中身
+    const blocks2 = parseBlocks("code:リスト\n　[_] やること", opts);
+    expect(blocks2[0]).toMatchObject({ type: "code", lines: ["[_] やること"] });
+  });
+
   it("code: ブロックを収集する", () => {
     const blocks = parseBlocks("code:test.sh\n echo hi\n echo bye", opts);
     expect(blocks[0]).toMatchObject({

@@ -139,9 +139,9 @@ function makeCtx(opts: Options): Ctx {
   return { compiled };
 }
 
-/** Cosense は先頭の空白 1 文字 = 1 インデントレベル */
+/** Cosense は先頭の空白 1 文字 = 1 インデントレベル（タブ・半角・全角スペース） */
 function leadingIndent(line: string): number {
-  const m = line.match(/^[\t ]*/);
+  const m = line.match(/^[\t 　]*/);
   return m ? m[0].length : 0;
 }
 
