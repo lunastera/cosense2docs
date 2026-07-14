@@ -274,6 +274,21 @@ describe("parseInline", () => {
     ]);
   });
 
+  it("[x] はチェック済みチェックボックスになる（デフォルトルール）", () => {
+    expect(parseInline("[x] 完了タスク", opts)).toMatchObject([
+      { t: "checkbox", checked: true },
+      { t: "text", v: " 完了タスク" },
+    ]);
+    expect(parseInline("[X] 完了", opts)).toMatchObject([
+      { t: "checkbox", checked: true },
+      { t: "text", v: " 完了" },
+    ]);
+    // x を含むだけの中身は対象外
+    expect(parseInline("[xyz]", opts)).toMatchObject([
+      { t: "internal", v: "xyz" },
+    ]);
+  });
+
   it("[.icon] はルールの有効/無効に応じて記入欄になる", () => {
     expect(parseInline("担当: [.icon]", opts)).toMatchObject([
       { t: "text" },
@@ -398,13 +413,13 @@ describe("拡張ルール", () => {
 
   it("不正な正規表現のルールは無視される", () => {
     const o = withRule({ pattern: "(", effect: "red" });
-    expect(() => parseInline("[x]", o)).not.toThrow();
-    expect(parseInline("[x]", o)).toMatchObject([{ t: "internal", v: "x" }]);
+    expect(() => parseInline("[z]", o)).not.toThrow();
+    expect(parseInline("[z]", o)).toMatchObject([{ t: "internal", v: "z" }]);
   });
 
   it("無効化されたルールは適用されない", () => {
-    const o = withRule({ pattern: "x", effect: "red", enabled: false });
-    expect(parseInline("[x]", o)).toMatchObject([{ t: "internal", v: "x" }]);
+    const o = withRule({ pattern: "z", effect: "red", enabled: false });
+    expect(parseInline("[z]", o)).toMatchObject([{ t: "internal", v: "z" }]);
   });
 });
 

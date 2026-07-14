@@ -50,7 +50,7 @@ export function nodesToMarkdown(nodes: InlineNode[]): string {
         }
         break;
       case "checkbox":
-        out += "☐";
+        out += n.checked ? "☑" : "☐";
         break;
       case "blank":
         out += "＿＿＿＿＿＿";
@@ -66,14 +66,15 @@ export function nodesToMarkdown(nodes: InlineNode[]): string {
   return out;
 }
 
-/** 箇条書き項目。先頭がチェックボックスなら Docs のチェックリストになる - [ ] 形式 */
+/** 箇条書き項目。先頭がチェックボックスなら Docs のチェックリストになる - [ ] / - [x] 形式 */
 function listItemMd(nodes: InlineNode[]): string {
-  if (nodes[0]?.t === "checkbox") {
+  const head = nodes[0];
+  if (head?.t === "checkbox") {
     const rest = nodes.slice(1);
     if (rest[0]?.t === "text") {
       rest[0] = { t: "text", v: rest[0].v.replace(/^ /, "") };
     }
-    return `[ ] ${nodesToMarkdown(rest)}`;
+    return `[${head.checked ? "x" : " "}] ${nodesToMarkdown(rest)}`;
   }
   return nodesToMarkdown(nodes);
 }

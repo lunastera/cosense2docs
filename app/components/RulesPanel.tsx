@@ -5,6 +5,7 @@ import { DEFAULT_RULES, validateRulePattern } from "~/lib/parser";
 const EFFECT_LABELS: [EffectId, string][] = [
   ["note", "補足表示（グレー・小さめ）"],
   ["checkbox", "チェックボックス（☐）"],
+  ["checked", "チェック済み（☑）"],
   ["blank", "記入欄（下線の空欄）"],
   ["bold", "太字"],
   ["italic", "斜体"],

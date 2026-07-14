@@ -45,7 +45,19 @@ function loadInitialRules(): CustomRule[] {
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_RULES) ?? "null");
     if (saved && Array.isArray(saved.rules)) {
-      return saved.rules.filter(isCustomRule);
+      const rules: CustomRule[] = saved.rules.filter(isCustomRule);
+      // v1 → v2: [x] チェック済みのデフォルトルールを追加
+      if (
+        (saved.version ?? 1) < 2 &&
+        !rules.some((r) => r.id === "checklist-checked")
+      ) {
+        const checked = DEFAULT_RULES.find((r) => r.id === "checklist-checked");
+        if (checked) {
+          const at = rules.findIndex((r) => r.id === "checklist");
+          rules.splice(at >= 0 ? at + 1 : rules.length, 0, checked);
+        }
+      }
+      return rules;
     }
     // ルール保存がない場合: 旧トグル設定（checklist / blank）を
     // デフォルトルールの有効状態に引き継ぐ
@@ -87,7 +99,7 @@ export default function Home() {
       localStorage.setItem(STORAGE_OPTS, JSON.stringify({ firstLineTitle }));
       localStorage.setItem(
         STORAGE_RULES,
-        JSON.stringify({ version: 1, rules }),
+        JSON.stringify({ version: 2, rules }),
       );
     } catch {}
   }, [text, firstLineTitle, rules]);

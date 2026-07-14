@@ -91,7 +91,7 @@ export function nodesToHtml(nodes: InlineNode[]): string {
         break;
       }
       case "checkbox":
-        out += "☐";
+        out += n.checked ? "☑" : "☐";
         break;
       case "blank":
         out += `<span style="${S.blank}">　　　　　　</span>`;

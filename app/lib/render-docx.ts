@@ -98,7 +98,7 @@ function nodesToRuns(
         }
         break;
       case "checkbox":
-        out.push(new TextRun({ text: "☐", ...inherit }));
+        out.push(new TextRun({ text: n.checked ? "☑" : "☐", ...inherit }));
         break;
       case "blank":
         out.push(

@@ -12,6 +12,7 @@
 export type EffectId =
   | "note"
   | "checkbox"
+  | "checked"
   | "blank"
   | "bold"
   | "italic"
@@ -50,6 +51,13 @@ export const DEFAULT_RULES: CustomRule[] = [
     pattern: "_",
     kind: "preset",
     effect: "checkbox",
+  },
+  {
+    id: "checklist-checked",
+    enabled: true,
+    pattern: "[xX]",
+    kind: "preset",
+    effect: "checked",
   },
   {
     id: "blank",
@@ -93,7 +101,7 @@ export type InlineNode =
   | { t: "link"; href: string; label: string }
   | { t: "deco"; b?: boolean; i?: boolean; s?: boolean; ch: InlineNode[] }
   | { t: "styled"; style: StyledStyle; ch: InlineNode[] }
-  | { t: "checkbox" }
+  | { t: "checkbox"; checked?: boolean }
   | { t: "blank" }
   | { t: "icons"; names: string[] }
   | { t: "internal"; v: string };
@@ -297,6 +305,8 @@ function effectNode(effect: EffectId, content: string, ctx: Ctx): InlineNode {
   switch (effect) {
     case "checkbox":
       return { t: "checkbox" };
+    case "checked":
+      return { t: "checkbox", checked: true };
     case "blank":
       return { t: "blank" };
     case "bold":

@@ -99,6 +99,7 @@ describe("convert (HTML)", () => {
 
   it("トグル: チェックリスト", () => {
     expect(convert("\t[_] タスク", opts)).toContain("☐ タスク");
+    expect(convert("\t[x] 完了タスク", opts)).toContain("☑ 完了タスク");
     expect(convert("\t[_] タスク", withoutRule("checklist"))).toContain("[_]");
   });
 

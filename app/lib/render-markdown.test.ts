@@ -33,8 +33,11 @@ describe("convertMarkdown", () => {
     expect(md).not.toContain(" ");
   });
 
-  it("チェックリストは - [ ] になる", () => {
+  it("チェックリストは - [ ] / - [x] になる", () => {
     expect(convertMarkdown("\t[_] タスク", opts)).toContain("- [ ] タスク");
+    expect(convertMarkdown("\t[x] 完了タスク", opts)).toContain(
+      "- [x] 完了タスク",
+    );
   });
 
   it("箇条書きの階層はインデントで表す", () => {
