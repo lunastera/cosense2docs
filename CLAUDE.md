@@ -21,7 +21,8 @@ React Router v8, React 19, TypeScript, Tailwind CSS v4, Vite, Biome, Vitest, doc
 
 - `app/routes/home.tsx`: Single page (textarea + preview + toolbar)
 - `app/lib/parser.ts`: Cosense 記法パーサー。ブロック（見出し・箇条書き・code:・table: 等）とインラインノード（装飾・リンク・コード等）の型定義もここ
-- `app/lib/render-html.ts`: HTML 出力。コピーして Word / Google Docs に貼れるよう装飾はインラインスタイル
+- `app/lib/render-html.ts`: HTML 出力。コピーして Word / Google Docs に貼れるよう装飾はインラインスタイル。コードブロックは Docs 貼り付けで崩れない「1 セルの表 + 1 行 1 段落」構造（`<pre>` は Docs が改行・空白を潰す）
+- `app/lib/render-markdown.ts`: Markdown 出力。Google Docs の「編集 → マークダウンから貼り付け」用で、コードブロックが Docs ネイティブのコードブロックになる
 - `app/lib/render-docx.ts`: docx 出力（`docx` パッケージ）。ファイル名決定ロジック（`docName`）もここ
 - `app/lib/sample.ts`: 初回表示のサンプルテキスト。実在の人名・プロダクト名は載せない
 - `app/components/Toolbar.tsx`: タイトルトグル・拡張ルール開閉・ファイル名・コピー/ダウンロードボタン

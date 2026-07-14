@@ -7,24 +7,46 @@
 import type { Block, InlineNode, Options } from "./parser";
 import { parseBlocks, parseInline } from "./parser";
 
+// Google Docs は font-family リストの先頭しか見ないため、
+// Docs が持っているフォント（Courier New）を先頭にする
+const MONO = "font-family:'Courier New',ui-monospace,Menlo,Consolas,monospace;";
+
 const S = {
-  code: "font-family:ui-monospace,SF Mono,Menlo,Consolas,monospace;font-size:.88em;background:#f1f3f5;border-radius:4px;padding:1px 5px;",
-  pre: "font-family:ui-monospace,SF Mono,Menlo,Consolas,monospace;font-size:.86em;background:#f1f3f5;border-radius:6px;padding:12px 14px;overflow-x:auto;line-height:1.6;margin:.5em 0;white-space:pre;",
-  preName:
-    "font-size:.75em;color:#6b7280;margin:.6em 0 0;font-family:ui-monospace,Menlo,Consolas,monospace;",
+  code: `${MONO}font-size:.88em;background:#f1f3f5;border-radius:4px;padding:1px 5px;`,
+  // コードブロックは 1 セルの表 + 1 行 1 段落で出力する。
+  // <pre> は Google Docs への貼り付けで改行・空白が潰れて崩壊するが、
+  // 表のセルは構造ごと保持される（Docs のコードブロック相当の見た目になる）
+  preTable: "border-collapse:collapse;width:100%;margin:.5em 0;",
+  preCell: `background:#f1f3f5;border:1px solid #e5e7eb;border-radius:6px;padding:10px 14px;`,
+  preLine: `${MONO}font-size:.86em;line-height:1.6;margin:0;white-space:pre-wrap;`,
+  preName: `font-size:.75em;color:#6b7280;margin:.6em 0 0;${MONO}`,
   quote:
     "border-left:3px solid #d1d5db;color:#57606a;margin:.4em 0;padding:.1em .9em;",
   note: "color:#6b7280;font-size:.88em;",
   gray: "color:#6b7280;",
   red: "color:#dc2626;",
   underline: "text-decoration:underline;text-underline-offset:3px;",
-  mono: "font-family:ui-monospace,SF Mono,Menlo,Consolas,monospace;font-size:.88em;background:#f1f3f5;border-radius:4px;padding:1px 5px;",
+  mono: `${MONO}font-size:.88em;background:#f1f3f5;border-radius:4px;padding:1px 5px;`,
   blank: "text-decoration:underline;text-underline-offset:3px;white-space:pre;",
   hr: "border:none;border-top:1px solid #d1d5db;margin:1.1em 0;",
   table: "border-collapse:collapse;margin:.5em 0;",
   cell: "border:1px solid #d1d5db;padding:4px 10px;",
   icon: "color:#6b7280;font-size:.85em;",
 } as const;
+
+/**
+ * コードブロック 1 行分の HTML（1 行 = 1 段落）。
+ * Google Docs 等は貼り付け時に連続スペースを潰すため、
+ * 字下げと連続スペースは nbsp で保持する。
+ * 単語間の単独スペースは通常のスペースのまま残す（コピーした文面を汚さないため）。
+ */
+function preLine(line: string): string {
+  const html = esc(line.replace(/\t/g, "    "))
+    .replace(/^ +/, (m) => "\u00a0".repeat(m.length))
+    .replace(/ {2,}/g, (m) => "\u00a0".repeat(m.length));
+  // 空行は nbsp を入れて段落の高さを保つ
+  return `<p style="${S.preLine}">${html || "\u00a0"}</p>`;
+}
 
 function esc(s: string): string {
   return s
@@ -145,10 +167,14 @@ export function blocksToHtml(blocks: Block[], opts: Options): string {
       case "hr":
         html += `<hr style="${S.hr}">`;
         break;
-      case "code":
+      case "code": {
         if (b.name) html += `<p style="${S.preName}">${esc(b.name)}</p>`;
-        html += `<pre style="${S.pre}">${esc(b.lines.join("\n"))}</pre>`;
+        const codeLines = (b.lines.length ? b.lines : [""])
+          .map(preLine)
+          .join("");
+        html += `<table style="${S.preTable}"><tbody><tr><td style="${S.preCell}">${codeLines}</td></tr></tbody></table>`;
         break;
+      }
       case "table": {
         if (b.name) html += `<p style="${S.preName}">${esc(b.name)}</p>`;
         html += `<table style="${S.table}">`;

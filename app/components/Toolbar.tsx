@@ -6,6 +6,7 @@ type Props = {
   filename: string;
   onFilenameChange: (filename: string) => void;
   onCopyRich: () => void;
+  onCopyMarkdown: () => void;
   onCopyHtml: () => void;
   onDownloadDocx: () => void;
 };
@@ -18,6 +19,7 @@ export function Toolbar({
   filename,
   onFilenameChange,
   onCopyRich,
+  onCopyMarkdown,
   onCopyHtml,
   onDownloadDocx,
 }: Props) {
@@ -48,6 +50,14 @@ export function Toolbar({
         placeholder="ファイル名（省略可）"
         className="w-44 rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs"
       />
+      <button
+        type="button"
+        className={buttonClass}
+        onClick={onCopyMarkdown}
+        title="Google Docs では「編集 → マークダウンから貼り付け」で貼ると、コードブロックが Docs のコードブロックになります"
+      >
+        Markdown をコピー（Docs 向け）
+      </button>
       <button type="button" className={buttonClass} onClick={onCopyRich}>
         プレビューをコピー
       </button>

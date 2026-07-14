@@ -59,10 +59,23 @@ describe("convert (HTML)", () => {
 
   it("コード", () => {
     expect(convert("run `ls -la` now", opts)).toContain("<code");
+    // コードブロックは 1 セルの表 + 1 行 1 段落（Docs 貼り付けで構造が保持される）
     const block = convert("code:test.sh\n echo hi\n echo bye", opts);
-    expect(block).toContain("<pre");
-    expect(block).toContain("echo hi\necho bye");
+    expect(block).toContain("<table");
+    expect(block).toMatch(
+      /<td[^>]*>(<p[^>]*>echo hi<\/p>)(<p[^>]*>echo bye<\/p>)<\/td>/,
+    );
     expect(block).toContain("test.sh");
+    expect(block).not.toContain("<pre");
+  });
+
+  it("コードブロックの字下げ・連続スペースを nbsp で保持する", () => {
+    const block = convert("code:a.txt\n 項目\n     字下げ行\n 単語  間", opts);
+    expect(block).toContain(`>${"\u00a0".repeat(4)}字下げ行</p>`);
+    expect(block).toContain(`>単語${"\u00a0".repeat(2)}間</p>`);
+    // 単語間の単独スペースは通常のスペースのまま
+    const single = convert("code:b.txt\n a b", opts);
+    expect(single).toContain(">a b</p>");
   });
 
   it("入れ子の箇条書きが正しい HTML 構造になる", () => {

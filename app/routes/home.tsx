@@ -5,6 +5,7 @@ import type { CustomRule, Options } from "~/lib/parser";
 import { DEFAULT_RULES } from "~/lib/parser";
 import { docName, generateDocxBlob } from "~/lib/render-docx";
 import { convert } from "~/lib/render-html";
+import { convertMarkdown } from "~/lib/render-markdown";
 import { SAMPLE } from "~/lib/sample";
 
 const STORAGE_SRC = "cosense2docs:src";
@@ -115,6 +116,17 @@ export default function Home() {
     }
   }, [showToast]);
 
+  const copyMarkdown = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(convertMarkdown(text, options));
+      showToast(
+        "Markdown をコピーしました。Docs では「編集 → マークダウンから貼り付け」で貼ってください",
+      );
+    } catch {
+      showToast("コピーに失敗しました");
+    }
+  }, [text, options, showToast]);
+
   const copyHtml = useCallback(async () => {
     try {
       await navigator.clipboard.writeText(html);
@@ -156,6 +168,7 @@ export default function Home() {
         filename={filename}
         onFilenameChange={setFilename}
         onCopyRich={copyRich}
+        onCopyMarkdown={copyMarkdown}
         onCopyHtml={copyHtml}
         onDownloadDocx={downloadDocx}
       />
