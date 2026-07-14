@@ -68,6 +68,18 @@ describe("parseBlocks", () => {
     });
   });
 
+  it("リンクを入れ子にした装飾も行全体なら見出しになる", () => {
+    const blocks = parseBlocks("[** 会場は[こちら https://example.com]]", opts);
+    expect(blocks[0]).toMatchObject({
+      type: "heading",
+      level: 2,
+      nodes: [
+        { t: "text", v: "会場は" },
+        { t: "link", href: "https://example.com", label: "こちら" },
+      ],
+    });
+  });
+
   it("文中の [* ] は見出しにしない", () => {
     const blocks = parseBlocks("これは [* 強調] です", opts);
     expect(blocks[0].type).toBe("p");
@@ -181,6 +193,37 @@ describe("parseInline", () => {
     ]);
     expect(parseInline("[*/ 両方]", opts)).toMatchObject([
       { t: "deco", b: true, i: true },
+    ]);
+  });
+
+  it("装飾・注記の中にリンクを入れ子にできる", () => {
+    expect(
+      parseInline("[* 太字[リンク https://example.com]です]", opts),
+    ).toMatchObject([
+      {
+        t: "deco",
+        b: true,
+        ch: [
+          { t: "text", v: "太字" },
+          { t: "link", href: "https://example.com", label: "リンク" },
+          { t: "text", v: "です" },
+        ],
+      },
+    ]);
+    expect(
+      parseInline("[~ 補足 [リンク https://example.com]]", opts),
+    ).toMatchObject([
+      {
+        t: "styled",
+        style: "note",
+        ch: [{ t: "text" }, { t: "link", href: "https://example.com" }],
+      },
+    ]);
+  });
+
+  it("閉じられていない装飾ブラケットはテキストのまま", () => {
+    expect(parseInline("[* 閉じてない", opts)).toMatchObject([
+      { t: "text", v: "[* 閉じてない" },
     ]);
   });
 

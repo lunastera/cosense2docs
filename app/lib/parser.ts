@@ -139,6 +139,22 @@ function makeCtx(opts: Options): Ctx {
   return { compiled };
 }
 
+/**
+ * open の位置の "[" に対応する閉じブラケットの位置を返す（入れ子を考慮）。なければ -1。
+ * [** 会場は[こちら URL]] のような装飾内のリンクを正しく閉じるために使う。
+ */
+function findMatchingBracket(s: string, open: number): number {
+  let depth = 0;
+  for (let j = open; j < s.length; j++) {
+    if (s[j] === "[") depth++;
+    else if (s[j] === "]") {
+      depth--;
+      if (depth === 0) return j;
+    }
+  }
+  return -1;
+}
+
 /** Cosense は先頭の空白 1 文字 = 1 インデントレベル（タブ・半角・全角スペース） */
 function leadingIndent(line: string): number {
   const m = line.match(/^[\t 　]*/);
@@ -229,8 +245,13 @@ export function parseBlocks(text: string, opts: Options): Block[] {
       continue;
     }
 
+    // 行全体が 1 つの [* ...] ブラケット（入れ子含む）なら見出し
     m = content.match(/^\[(\*+)\s+(.+)\]$/);
-    if (m && indent === 0 && !m[2].includes("]")) {
+    if (
+      m &&
+      indent === 0 &&
+      findMatchingBracket(content, 0) === content.length - 1
+    ) {
       const s = m[1].length;
       const level: HeadingLevel = s >= 3 ? 1 : s === 2 ? 2 : 3;
       blocks.push({ type: "heading", level, nodes: inline(m[2], ctx) });
@@ -413,7 +434,10 @@ function inline(s: string, ctx: Ctx): InlineNode[] {
       }
     }
     if (c === "[") {
-      const j = s.indexOf("]", i + 1);
+      // 装飾系ブラケット（[* ...] [~ ...] 等）はリンクを入れ子にできるため、
+      // 対応する閉じブラケットまでを 1 つのブラケットとして扱う
+      const decoLike = /^[*/\-~]+[\t 　]/.test(s.slice(i + 1));
+      const j = decoLike ? findMatchingBracket(s, i) : s.indexOf("]", i + 1);
       if (j > 0) {
         const node = bracketNode(s.slice(i + 1, j), ctx);
         if (node) {
