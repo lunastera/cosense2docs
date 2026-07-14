@@ -238,17 +238,18 @@ export function parseBlocks(text: string, opts: Options): Block[] {
       continue;
     }
 
+    // コマンドライン記法: $ （または %）で始まる行は行全体をインラインコード扱い
+    const nodes: InlineNode[] = /^[$%] /.test(content)
+      ? [{ t: "code", v: content }]
+      : inline(content, ctx);
+
     if (indent > 0) {
-      blocks.push({
-        type: "li",
-        level: indent,
-        nodes: inline(content, ctx),
-      });
+      blocks.push({ type: "li", level: indent, nodes });
       i++;
       continue;
     }
 
-    blocks.push({ type: "p", nodes: inline(content, ctx) });
+    blocks.push({ type: "p", nodes });
     i++;
   }
   return blocks;

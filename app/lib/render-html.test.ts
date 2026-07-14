@@ -78,6 +78,13 @@ describe("convert (HTML)", () => {
     expect(single).toContain(">a b</p>");
   });
 
+  it("$ で始まる行は行全体がインラインコードになる", () => {
+    const html = convert("\t$ /remind #ch あとで in 30 minutes", opts);
+    expect(html).toMatch(
+      /<li><code[^>]*>\$ \/remind #ch あとで in 30 minutes<\/code><\/li>/,
+    );
+  });
+
   it("入れ子の箇条書きが正しい HTML 構造になる", () => {
     expect(convert("\ta\n\t\tb\n\t\t\tc\n\ta2", opts)).toBe(
       "<ul><li>a<ul><li>b<ul><li>c</li></ul></li></ul></li><li>a2</li></ul>",

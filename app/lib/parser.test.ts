@@ -116,6 +116,27 @@ describe("parseBlocks", () => {
     expect(parseBlocks("[hr.icon]", opts)[0]).toMatchObject({ type: "hr" });
   });
 
+  it("$ / % で始まる行はコマンドライン（行全体がインラインコード）", () => {
+    expect(parseBlocks("$ ls -la", opts)[0]).toMatchObject({
+      type: "p",
+      nodes: [{ t: "code", v: "$ ls -la" }],
+    });
+    expect(parseBlocks("\t$ /remind me later", opts)[0]).toMatchObject({
+      type: "li",
+      level: 1,
+      nodes: [{ t: "code", v: "$ /remind me later" }],
+    });
+    expect(parseBlocks("% make build", opts)[0]).toMatchObject({
+      type: "p",
+      nodes: [{ t: "code", v: "% make build" }],
+    });
+    // スペースがなければ通常のテキスト
+    expect(parseBlocks("$100 です", opts)[0]).toMatchObject({
+      type: "p",
+      nodes: [{ t: "text", v: "$100 です" }],
+    });
+  });
+
   it("> を引用にする", () => {
     expect(parseBlocks("> 引用文", opts)[0]).toMatchObject({ type: "quote" });
   });
